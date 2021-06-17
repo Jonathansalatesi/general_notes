@@ -1,0 +1,110 @@
+//// linux系统下和windows下的汇编格式             
+汇编语言(Assembly Language)中 mov和movl 有什么区别（举例说明）
+In a word, they belong to two instruction set, movl is at%t and mov is intel
+
+参考正确回答:
+AT＆T汇编语言(Assembly Language)是UNIX下惯用的汇编语言(Assembly Language)各式
+l,w,b是ATT汇编语言(Assembly Language)中用来表达操作属性的限定符
+l是双字（4字节)，
+w是字
+b是唯一字节
+加在命令的后边
+相当于intel中的
+dword ptr
+word ptr
+byte ptr
+比如：
+
+linux操作系统下：
+
+subl $8, %esp
+leal -792(%ebp), %eax
+pushl %eax
+movl -796(%ebp), %eax
+sall $8, %eax
+addl 12(%ebp), %eax
+pushl %eax
+call _strcpy
+addl $16, %esp
+
+在intel 汇编语言(Assembly Language)中，在Windows系统下就相当于:
+
+sub esp,0x08
+lea eax, dword ptr ss:[ebp -792]
+push eax
+mov eax, dword ptr ss:[ebp - 796]
+sal eax, 0x08
+add eax, dword ptr ss:[ebp + 12]
+push eax
+call _strcpy
+add esp, 0x16
+
+ATT各式的汇编语言(Assembly Language)和intel编的差别没去外国疑问参看有关AT&T汇编语言(Assembly Language)的书
+l根本是32位的意思。
+
+//// 关于MMX指令集
+FPU: 8个80位浮点寄存器（数据），16位状态寄存器，16位控制寄存器，16为标识寄存器。
+     使用FPU指令对这些寄存器进行操作，这些寄存器构成一个循环栈，st7栈底，st0栈顶，
+     当一个值被压入时，被存入st0，原来st0中的值被存入st7
+MMX: 将8个FPU寄存器重命名为8个64位MMX寄存器，即mm0到mm7。[号称多媒体处理技术]
+     57条MMX指令，加快了整形浮点运算，但是对于复杂浮点运算无帮助
+
+SSE: 8个128位寄存器（从xmm0到xmm7），MXSCR寄存器，EFLAGS寄存器，专有指令（复杂浮点运算）
+SSE2: 寄存器和SSE相同，增加了5种数据类型（都是128位），专有指令
+SSE3: 进增加了几个新的指令
+
+由于MMX使用的寄存器影射到FPU寄存器上，所以MMX指令执行前，需要保存FPU堆栈。
+
+示例1，FPU寄存器及指令使用（下面所有程序都使用at&t风格汇编）：
+data1:
+    .byte 0x34, 0x12, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+data2:
+    .byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+.section .text
+.globl _start
+_start:
+    nop
+    fbld data1      ;压入st0
+    fimul data2     ;st0中的值和data2相乘，保存在st0中
+    fbstp data1     ;st0弹出到内存44
+
+
+示例2, SSE寄存器及指令使用
+.lcomm data 16
+value1:
+    .float 12.34, 2345.543, -3493.2, 0.44901
+value2:
+    .float -54439.234, 23231.4, 1.0098, 0.000003
+.section .text
+.globl _start
+_start:
+    movups value1, %xmm0
+    movups value2, %xmm1
+    movups %xmm0, %xmm2
+    movups %xmm0, data
+
+由于MMX技术处理的是由几个并行紧缩型数据组合成的一个64位数，因此在MMX运算中，例如算术运算，比较运算，逻辑运算和移位运算等，
+都是对应的紧缩型数据独立于其他的数据并行进行运算，互相不能影响，也不能简单的当成一个整体的连续的64位数来对待。
+所以在运算过程中就要注意解决紧缩型数据之间的边界越界问题，因此产生了绕转及饱和这新的MMX运算原则。
+绕转运算：例如带绕转的无符号紧缩型字相加，虽然是64位的紧缩数相加，但是每个紧缩数是由4个独立的16位小整型紧缩型字组成，
+所以其中每个对应的16位紧缩型字的加法都要独立于其他的加法并行进行。紧缩型字的边界之间不能产生进位或借位，其中每个字边界之间的进位或借位被丢掉，称之为绕转。
+这样就保证了64位数内4个独立的16位字数据之间的正常并行运算。
+饱和运算：例如带饱和的无符号紧缩型字相加减，当产生一个越界的结果时，边界之间的进位或借位被丢掉，且上溢时本紧缩型字取最大的可表示值为FFFFH，
+下溢时本紧缩型字取最小的可表示值为0000H，即其值被饱和了。饱和运算对像素运算来说很重要，避免了绕转运算带来的使一个黑(白)像素突然变成白(黑)像素的可能。
+而对带符号的16位字而言，最大和最小的饱和值为7FFFH和8000H。
+MMX指令中还特别增加了脱胎于DSP的关键的乘和累加指令，能够一次处理4个16位字的4次乘法和2次加法(A3*B3＋A2*B2＋A1*B1＋A0*B0)。
+对许多信号处理算法来说，如向量点积，矩阵相乘，FIR和IIR滤波，FFT，DCT等，该指令十分重要而有效。
+可见，利用MMX技术进行多媒体应用的并行计算比不用MMX技术要节省不少指令和运行时间。
+
+//// 计算机层面的浮点数的表示和运算已经掌握了 IEEE的标准
+NUM = (-1) ^ S * M * 2 ^ E
+ex:
+    134.375 = 1000 0110. 011 = (-1) ^ 0 * (1.000 0110 0110) * 2 ^ (+7)
+    // S : 1 bit   ; Higher addr
+    // E : 8 bit
+    // M : 32 bit  ; Lower addr
+    SEM:
+        0 1000 0110 0000 1100 1100 0000 0000 000
+        0100 0011 0000 0110 0110 0000 0000 0000
+        0x43 0x06 0x60 0x00
+        32 bit float
