@@ -1,0 +1,5 @@
+push eax    <=>     sub esp, 4h
+                    mov dword ptr ss:[esp], eax
+
+pop eax     <=>     mov eax, dword ptr ss:[esp]
+                    add esp, 4h
