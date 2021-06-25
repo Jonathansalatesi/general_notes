@@ -3,3 +3,54 @@ push eax    <=>     sub esp, 4h
 
 pop eax     <=>     mov eax, dword ptr ss:[esp]
                     add esp, 4h
+
+
+//// 关于汇编语言中，子程序调用的问题
+(1) 段内直接调用
+    call 过程名     <=>      SP = SP - 2
+                            [SP] = IP
+                            IP = IP + disp
+    本质上，由于转移只发生在同一个段内，CS寄存器并未发生变化。
+    然后将返回地址和子程序入口地址之间的差值(disp)加到指令指针IP上。
+    disp等于目标地址到call指令下一条指令开始地址的差。
+    转移范围是-32768 -> + 32767
+    注：SP是当前栈指针
+(2) 段内间接调用
+    call OPRD       <=>     SP = SP - 2
+                            [SP] = IP
+                            IP = (OPRD)
+(3) 段间直接调用
+    call 过程名     <=>          SP = SP - 2
+                                [SP] = CS
+                                SP = SP - 2
+                                [SP] = IP
+                                IP = 过程入口地址的偏移
+                                CS = 过程入口地址的段值
+(3) 段间间接调用
+    call OPRD     <=>           SP = SP - 2
+                                [SP] = CS
+                                SP = SP - 2
+                                [SP] = IP
+                                IP = OPRD的低字值
+                                CS = OPRD的高字值
+
+//// 过程返回指令
+(1) 段内返回指令
+    ret     <=>     IP = [SP]
+                    SP = SP + 2
+(2) 段间返回指令
+    ret     <=>     IP = [SP]
+                    SP = SP + 2
+                    CS = [SP]
+                    SP = SP + 2
+(3) 段内带立即数返回指令
+    ret data    <=>     IP = [SP]
+                        SP = SP + 2
+                        SP = SP + data
+(4) 段间带立即数返回指令
+    retf data    <=>     IP = [SP]
+                         SP = SP + 2
+                         CS = [SP]
+                         SP = SP + 2
+                         SP = SP + data
+
